@@ -34,7 +34,8 @@ function LoginForm() {
       }
 
       toast.success("Logged in successfully!");
-      router.push(redirectTo);
+      const target = searchParams.get("redirect") || (data.user?.role === "ADMIN" ? "/admin" : "/");
+      router.push(target);
       router.refresh();
     } catch (err) {
       setError(err.message);

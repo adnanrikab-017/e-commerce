@@ -12,8 +12,8 @@ export async function middleware(request) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get("gocart_session")?.value;
 
-  // Protect Admin and Store routes
-  if (pathname.startsWith("/admin") || pathname.startsWith("/store")) {
+  // Protect Admin routes
+  if (pathname.startsWith("/admin")) {
     if (!token) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);
@@ -22,7 +22,7 @@ export async function middleware(request) {
 
     try {
       const { payload } = await jwtVerify(token, getSecret());
-      if (pathname.startsWith("/admin") && payload.role !== "ADMIN") {
+      if (payload.role !== "ADMIN") {
         return NextResponse.redirect(new URL("/", request.url));
       }
     } catch {
