@@ -7,12 +7,39 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRole { ADMIN CUSTOMER }
-enum ProductStatus { DRAFT PUBLISHED HIDDEN OUT_OF_STOCK }
-enum OrderStatus { PENDING CONFIRMED PACKED SHIPPED DELIVERED CANCELLED RETURNED }
-enum PaymentMethod { COD BKASH NAGAD }
-enum DiscountType { FIXED PERCENTAGE }
-enum BannerType { HERO PROMOTIONAL POPUP }
+enum UserRole {
+ADMIN
+CUSTOMER
+}
+enum ProductStatus {
+DRAFT
+PUBLISHED
+HIDDEN
+OUT_OF_STOCK
+}
+enum OrderStatus {
+PENDING
+CONFIRMED
+PACKED
+SHIPPED
+DELIVERED
+CANCELLED
+RETURNED
+}
+enum PaymentMethod {
+COD
+BKASH
+NAGAD
+}
+enum DiscountType {
+FIXED
+PERCENTAGE
+}
+enum BannerType {
+HERO
+PROMOTIONAL
+POPUP
+}
 
 model User {
   id             String     @id @default(cuid())
