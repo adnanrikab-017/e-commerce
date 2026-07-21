@@ -1,5 +1,5 @@
 import AdminLayout from "@/components/admin/AdminLayout";
-import { requireAdmin } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export const metadata = {
@@ -8,14 +8,18 @@ export const metadata = {
 };
 
 export default async function RootAdminLayout({ children }) {
-    const admin = await requireAdmin();
-    if (!admin) redirect("/");
+    const session = await getSession();
+    if (!session) {
+        redirect("/login?redirect=/admin");
+    }
+    if (session.role !== "ADMIN") {
+        redirect("/");
+    }
 
     return (
-        <>
-            <AdminLayout>
-                {children}
-            </AdminLayout>
-        </>
+        <AdminLayout>
+            {children}
+        </AdminLayout>
     );
 }
+
