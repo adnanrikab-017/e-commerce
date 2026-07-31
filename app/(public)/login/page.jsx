@@ -34,9 +34,9 @@ function LoginForm() {
       }
 
       toast.success("Logged in successfully!");
+      window.dispatchEvent(new Event("gocart:auth-changed"));
       const target = searchParams.get("redirect") || (data.user?.role === "ADMIN" ? "/admin" : "/");
-      router.push(target);
-      router.refresh();
+      router.replace(target);
     } catch (err) {
       setError(err.message);
       toast.error(err.message);

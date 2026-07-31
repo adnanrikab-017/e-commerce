@@ -47,8 +47,8 @@ function RegisterForm() {
       }
 
       toast.success("Account created successfully!");
-      router.push(redirectTo);
-      router.refresh();
+      window.dispatchEvent(new Event("gocart:auth-changed"));
+      router.replace(redirectTo);
     } catch (err) {
       setError(err.message);
       toast.error(err.message);

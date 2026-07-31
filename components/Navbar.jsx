@@ -14,13 +14,16 @@ const Navbar = () => {
     const cartCount = useSelector(state => state.cart?.total || 0);
 
     useEffect(() => {
-        fetch("/api/auth/me")
+        const loadUser = () => fetch("/api/auth/me", { cache: "no-store" })
             .then(res => res.json())
             .then(data => {
                 setUser(data.user);
             })
             .catch(() => setUser(null))
             .finally(() => setLoadingUser(false));
+        loadUser();
+        window.addEventListener("gocart:auth-changed", loadUser);
+        return () => window.removeEventListener("gocart:auth-changed", loadUser);
     }, []);
 
     const handleSearch = (e) => {
@@ -32,6 +35,7 @@ const Navbar = () => {
         try {
             await fetch("/api/auth/logout", { method: "POST" });
             setUser(null);
+            window.dispatchEvent(new Event("gocart:auth-changed"));
             toast.success("Logged out successfully");
             router.push("/login");
             router.refresh();
@@ -53,7 +57,7 @@ const Navbar = () => {
                     <div className="hidden sm:flex items-center gap-4 lg:gap-6 text-slate-600">
                         <Link href="/">Home</Link>
                         <Link href="/shop">Shop</Link>
-                        <Link href="/shop">New arrivals</Link>
+                        <Link href="/shop?newArrival=true">New arrivals</Link>
 
                         <form onSubmit={handleSearch} className="hidden xl:flex items-center w-xs text-sm gap-2 bg-slate-100 px-4 py-3 rounded-full">
                             <Search size={18} className="text-slate-600" />
@@ -125,4 +129,3 @@ const Navbar = () => {
 }
 
 export default Navbar
-

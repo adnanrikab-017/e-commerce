@@ -1,276 +1,36 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from "react";
-import toast from "react-hot-toast";
-import { DeleteIcon, Plus, RefreshCw, Tag, Box, DollarSign } from "lucide-react";
+import { useEffect, useState } from 'react'
+import toast from 'react-hot-toast'
+import { Pencil, Plus, Trash2, X } from 'lucide-react'
 
-const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || "৳";
+const emptyProduct = { name: '', sku: '', price: '', salePrice: '', stock: '0', categoryId: '', status: 'PUBLISHED', shortDescription: '', description: '', specificationsText: '', images: [], isFeatured: false, isNewArrival: false }
 
 export default function AdminProducts() {
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
-
-  const [newProduct, setNewProduct] = useState({
-    name: "",
-    sku: "",
-    price: "",
-    salePrice: "",
-    stock: "10",
-    categoryId: "",
-    status: "PUBLISHED",
-    imageUrl: "",
-    description: "",
-  });
-
-  const fetchProducts = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/admin/products", { cache: "no-store" });
-      const data = await res.json();
-      if (res.ok) {
-        setProducts(data.products || []);
-        setCategories(data.categories || []);
-        if (data.categories?.length > 0 && !newProduct.categoryId) {
-          setNewProduct((prev) => ({ ...prev, categoryId: data.categories[0].id }));
-        }
-      } else {
-        toast.error(data.error || "Failed to load products");
-      }
-    } catch {
-      toast.error("Error loading products");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const handleAddProduct = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await fetch("/api/admin/products", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newProduct),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to add product");
-
-      toast.success("Product added successfully");
-      setShowAddForm(false);
-      setNewProduct({
-        name: "",
-        sku: "",
-        price: "",
-        salePrice: "",
-        stock: "10",
-        categoryId: categories[0]?.id || "",
-        status: "PUBLISHED",
-        imageUrl: "",
-        description: "",
-      });
-      fetchProducts();
-    } catch (err) {
-      toast.error(err.message);
-    }
-  };
-
-  const handleStatusToggle = async (id, currentStatus) => {
-    const nextStatus = currentStatus === "PUBLISHED" ? "HIDDEN" : "PUBLISHED";
-    try {
-      const res = await fetch("/api/admin/products", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status: nextStatus }),
-      });
-      if (res.ok) {
-        toast.success(`Product set to ${nextStatus}`);
-        fetchProducts();
-      }
-    } catch {
-      toast.error("Failed to update status");
-    }
-  };
-
-  const handleDeleteProduct = async (id) => {
-    if (!confirm("Are you sure you want to delete this product?")) return;
-    try {
-      const res = await fetch(`/api/admin/products?id=${id}`, { method: "DELETE" });
-      if (res.ok) {
-        toast.success("Product deleted");
-        fetchProducts();
-      } else {
-        toast.error("Failed to delete product");
-      }
-    } catch {
-      toast.error("Error deleting product");
-    }
-  };
-
-  return (
-    <div className="text-slate-700 max-w-7xl mb-20">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div>
-          <p className="text-sm font-medium text-green-700">Catalog Management</p>
-          <h1 className="text-3xl font-semibold">Products</h1>
-        </div>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white font-medium rounded-xl text-sm transition cursor-pointer"
-        >
-          <Plus size={18} /> {showAddForm ? "Cancel" : "Add Product"}
-        </button>
+  const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '$'
+  const [products, setProducts] = useState([]); const [categories, setCategories] = useState([]); const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState(null); const [form, setForm] = useState(emptyProduct); const [uploading, setUploading] = useState(false)
+  const load = async () => { setLoading(true); try { const response = await fetch('/api/admin/products', { cache: 'no-store' }); const data = await response.json(); if (!response.ok) throw new Error(data.error); setProducts(data.products || []); setCategories(data.categories || []); setForm((value) => ({ ...value, categoryId: value.categoryId || data.categories?.[0]?.id || '' })) } catch (error) { toast.error(error.message || 'Could not load products') } finally { setLoading(false) } }
+  useEffect(() => { load() }, [])
+  const openCreate = () => { setEditing('new'); setForm({ ...emptyProduct, categoryId: categories[0]?.id || '' }) }
+  const openEdit = (product) => { setEditing(product.id); setForm({ ...emptyProduct, ...product, price: String(product.price), salePrice: product.salePrice == null ? '' : String(product.salePrice), stock: String(product.stock), images: product.images.map((image) => image.url), specificationsText: Object.entries(product.specifications || {}).map(([key, value]) => `${key}: ${value}`).join('\n') }) }
+  const upload = async (event) => { const files = [...event.target.files]; if (!files.length) return; setUploading(true); try { const payload = new FormData(); files.forEach((file) => payload.append('files', file)); const response = await fetch('/api/admin/uploads', { method: 'POST', body: payload }); const data = await response.json(); if (!response.ok) throw new Error(data.error); setForm((value) => ({ ...value, images: [...value.images, ...data.images.map((image) => image.url)].slice(0, 12) })); toast.success('Images uploaded') } catch (error) { toast.error(error.message) } finally { setUploading(false); event.target.value = '' } }
+  const save = async (event) => { event.preventDefault(); const specifications = {}; form.specificationsText.split('\n').forEach((line) => { const separator = line.indexOf(':'); if (separator > 0) specifications[line.slice(0, separator).trim()] = line.slice(separator + 1).trim() }); const body = { ...form, ...(editing === 'new' ? {} : { id: editing }), salePrice: form.salePrice === '' ? null : form.salePrice, specifications }; delete body.specificationsText; const response = await fetch('/api/admin/products', { method: editing === 'new' ? 'POST' : 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const data = await response.json(); if (!response.ok) return toast.error(data.details?.fieldErrors ? Object.values(data.details.fieldErrors).flat()[0] : data.error); toast.success(editing === 'new' ? 'Product created' : 'Product updated'); setEditing(null); load() }
+  const remove = async (id) => { if (!confirm('Permanently delete this product? Order history will keep its product name and price.')) return; const response = await fetch(`/api/admin/products?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); const data = await response.json(); if (!response.ok) return toast.error(data.error); toast.success('Product permanently deleted'); load() }
+  return <div className='text-slate-700 max-w-7xl mb-20'>
+    <div className='flex justify-between items-center mb-6'><div><p className='text-sm font-medium text-green-700'>Catalog Management</p><h1 className='text-3xl font-semibold'>Products</h1></div><button onClick={openCreate} className='flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm'><Plus size={18} /> Add Product</button></div>
+    {editing && <form onSubmit={save} className='bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-8 space-y-5'><div className='flex justify-between'><h2 className='text-lg font-semibold'>{editing === 'new' ? 'Add New Product' : 'Edit Product'}</h2><button type='button' onClick={() => setEditing(null)}><X /></button></div>
+      <div className='grid sm:grid-cols-2 lg:grid-cols-3 gap-4'>{[['name','Product Name','text'],['sku','SKU','text'],['price',`Price (${currency})`,'number'],['salePrice','Sale Price','number'],['stock','Stock','number']].map(([name,label,type]) => <label key={name} className='text-xs font-medium'>{label}<input type={type} min={type === 'number' ? 0 : undefined} step={name.includes('Price') || name === 'price' || name === 'salePrice' ? '0.01' : undefined} required={!['salePrice'].includes(name)} value={form[name]} onChange={(e) => setForm({ ...form, [name]: e.target.value })} className='mt-1 w-full p-2.5 border border-slate-200 rounded-lg text-sm' /></label>)}
+        <label className='text-xs font-medium'>Category<select required value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} className='mt-1 w-full p-2.5 border border-slate-200 rounded-lg text-sm'><option value=''>Select category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+        <label className='text-xs font-medium'>Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className='mt-1 w-full p-2.5 border border-slate-200 rounded-lg text-sm'>{['DRAFT','PUBLISHED','HIDDEN','OUT_OF_STOCK'].map((status) => <option key={status}>{status}</option>)}</select></label>
       </div>
-
-      {/* Add Product Form */}
-      {showAddForm && (
-        <form onSubmit={handleAddProduct} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm mb-8 space-y-4 max-w-2xl">
-          <h2 className="text-lg font-semibold text-slate-800 border-b pb-2">Add New Product</h2>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Product Name</label>
-              <input
-                type="text"
-                required
-                value={newProduct.name}
-                onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                placeholder="e.g. Wireless Headphones"
-                className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:outline-green-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">SKU</label>
-              <input
-                type="text"
-                required
-                value={newProduct.sku}
-                onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
-                placeholder="e.g. PROD-001"
-                className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:outline-green-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Price ({currency})</label>
-              <input
-                type="number"
-                step="0.01"
-                required
-                value={newProduct.price}
-                onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
-                placeholder="99.99"
-                className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:outline-green-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Stock Quantity</label>
-              <input
-                type="number"
-                required
-                value={newProduct.stock}
-                onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
-                placeholder="10"
-                className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:outline-green-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Category</label>
-              <select
-                value={newProduct.categoryId}
-                onChange={(e) => setNewProduct({ ...newProduct, categoryId: e.target.value })}
-                className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:outline-green-500"
-              >
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Image URL</label>
-              <input
-                type="url"
-                value={newProduct.imageUrl}
-                onChange={(e) => setNewProduct({ ...newProduct, imageUrl: e.target.value })}
-                placeholder="https://example.com/image.jpg"
-                className="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:outline-green-500"
-              />
-            </div>
-          </div>
-          <button type="submit" className="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-sm font-medium transition cursor-pointer">
-            Save Product
-          </button>
-        </form>
-      )}
-
-      {/* Product List Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
-              <tr>
-                <th className="py-3.5 px-4">Product</th>
-                <th className="py-3.5 px-4">SKU</th>
-                <th className="py-3.5 px-4">Price</th>
-                <th className="py-3.5 px-4">Stock</th>
-                <th className="py-3.5 px-4">Category</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan="7" className="py-8 text-center text-slate-500">Loading products...</td>
-                </tr>
-              ) : products.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="py-8 text-center text-slate-500">No products found.</td>
-                </tr>
-              ) : (
-                products.map((product) => (
-                  <tr key={product.id} className="hover:bg-slate-50 transition">
-                    <td className="py-3.5 px-4 font-medium text-slate-800">{product.name}</td>
-                    <td className="py-3.5 px-4 text-slate-500 font-mono text-xs">{product.sku}</td>
-                    <td className="py-3.5 px-4 font-semibold text-slate-800">{currency}{Number(product.price).toFixed(2)}</td>
-                    <td className="py-3.5 px-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${product.stock > 5 ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>
-                        {product.stock} left
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600">{product.category?.name || "Uncategorized"}</td>
-                    <td className="py-3.5 px-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${product.status === "PUBLISHED" ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600"}`}>
-                        {product.status}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleStatusToggle(product.id, product.status)}
-                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs rounded transition"
-                          title="Toggle Status"
-                        >
-                          Toggle Status
-                        </button>
-                        <button
-                          onClick={() => handleDeleteProduct(product.id)}
-                          className="p-1 text-red-500 hover:text-red-700 transition"
-                          title="Delete Product"
-                        >
-                          <DeleteIcon size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
+      <label className='block text-xs font-medium'>Short Description<textarea maxLength={500} value={form.shortDescription || ''} onChange={(e) => setForm({ ...form, shortDescription: e.target.value })} className='mt-1 w-full p-2.5 border border-slate-200 rounded-lg min-h-20 text-sm' /></label>
+      <label className='block text-xs font-medium'>Long Description<textarea value={form.description || ''} onChange={(e) => setForm({ ...form, description: e.target.value })} className='mt-1 w-full p-2.5 border border-slate-200 rounded-lg min-h-32 text-sm' /></label>
+      <label className='block text-xs font-medium'>Specifications <span className='font-normal text-slate-400'>(one “Name: Value” per line)</span><textarea value={form.specificationsText} onChange={(e) => setForm({ ...form, specificationsText: e.target.value })} className='mt-1 w-full p-2.5 border border-slate-200 rounded-lg min-h-28 font-mono text-sm' /></label>
+      <div><label className='text-xs font-medium'>Product Gallery (up to 12)<input type='file' accept='image/jpeg,image/png,image/webp,image/avif' multiple onChange={upload} disabled={uploading} className='block mt-2 text-sm' /></label><div className='flex flex-wrap gap-3 mt-3'>{form.images.map((url, index) => <div key={`${url}-${index}`} className='relative'><img src={url} alt='' className='size-20 object-cover rounded border' /><button type='button' onClick={() => setForm({ ...form, images: form.images.filter((_, itemIndex) => itemIndex !== index) })} className='absolute -right-2 -top-2 bg-red-600 text-white rounded-full p-1'><X size={12} /></button></div>)}</div></div>
+      <div className='flex gap-6 text-sm'><label><input type='checkbox' checked={form.isNewArrival} onChange={(e) => setForm({ ...form, isNewArrival: e.target.checked })} /> New Arrival</label><label><input type='checkbox' checked={form.isFeatured} onChange={(e) => setForm({ ...form, isFeatured: e.target.checked })} /> Featured</label></div>
+      <button disabled={uploading} className='px-6 py-2.5 bg-slate-800 text-white rounded-lg text-sm'>{uploading ? 'Uploading...' : 'Save Product'}</button>
+    </form>}
+    <div className='bg-white rounded-xl border border-slate-200 overflow-x-auto'><table className='w-full text-sm text-left'><thead className='bg-slate-50'><tr>{['Product','SKU','Price','Stock','Category','Status','New Arrival','Actions'].map((label) => <th key={label} className='py-3.5 px-4'>{label}</th>)}</tr></thead><tbody className='divide-y divide-slate-100'>{loading ? <tr><td colSpan='8' className='p-8 text-center'>Loading...</td></tr> : products.map((product) => <tr key={product.id}><td className='py-3 px-4 font-medium'>{product.name}</td><td className='py-3 px-4'>{product.sku}</td><td className='py-3 px-4'>{currency}{Number(product.salePrice ?? product.price).toFixed(2)}</td><td className='py-3 px-4'>{product.stock}</td><td className='py-3 px-4'>{product.category?.name}</td><td className='py-3 px-4'>{product.status}</td><td className='py-3 px-4'>{product.isNewArrival ? 'Yes' : 'No'}</td><td className='py-3 px-4'><div className='flex gap-3'><button onClick={() => openEdit(product)} title='Edit'><Pencil size={17} /></button><button onClick={() => remove(product.id)} className='text-red-600' title='Delete'><Trash2 size={17} /></button></div></td></tr>)}</tbody></table></div>
+  </div>
 }

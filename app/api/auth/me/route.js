@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
@@ -8,14 +11,16 @@ export async function GET() {
       return NextResponse.json({ user: null });
     }
 
+    const user = await prisma.user.findFirst({
+      where: { id: session.sub, isActive: true },
+      select: { id: true, role: true, name: true, email: true },
+    });
+    if (!user) return NextResponse.json({ user: null });
     return NextResponse.json({
       user: {
-        id: session.sub,
-        role: session.role,
-        name: session.name || "",
-        email: session.email || "",
+        ...user,
       },
-    });
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Auth me check error:", error);
     return NextResponse.json({ user: null });

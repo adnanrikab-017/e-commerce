@@ -33,7 +33,8 @@ export async function PATCH(request) {
     const body = await request.json();
     const { id, status } = body;
 
-    if (!id || !status) {
+    const allowedStatuses = new Set(["PENDING", "CONFIRMED", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED", "RETURNED"]);
+    if (!id || !allowedStatuses.has(status)) {
       return NextResponse.json({ error: "Order ID and status required" }, { status: 400 });
     }
 

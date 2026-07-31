@@ -10,15 +10,18 @@ import { useSelector } from "react-redux"
     // get query params ?search=abc
     const searchParams = useSearchParams()
     const search = searchParams.get('search')
+    const category = searchParams.get('category')
+    const newArrival = searchParams.get('newArrival') === 'true'
     const router = useRouter()
 
     const products = useSelector(state => state.product.list)
 
-    const filteredProducts = search
-        ? products.filter(product =>
-            product.name.toLowerCase().includes(search.toLowerCase())
-        )
-        : products;
+    const filteredProducts = products.filter(product => {
+        if (search && !product.name.toLowerCase().includes(search.toLowerCase())) return false
+        if (category && product.category?.slug !== category) return false
+        if (newArrival && !product.isNewArrival) return false
+        return true
+    });
 
     return (
         <div className="min-h-[70vh] mx-6">
