@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { requireAuth } from "@/lib/auth";
 import { calculateDiscount, couponUnavailableReason } from "@/lib/commerce";
-import { apiError, parseJson } from "@/lib/http";
+import { apiError, parseJson, serverError } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { orderInputSchema } from "@/lib/validation";
 import { NextResponse } from "next/server";
@@ -9,12 +9,16 @@ import { NextResponse } from "next/server";
 export async function GET() {
   const session = await requireAuth();
   if (!session) return apiError("Unauthorized", 401);
-  const orders = await prisma.order.findMany({
-    where: { customerId: session.sub },
-    include: { address: true, items: true, coupon: { select: { code: true } }, history: { orderBy: { createdAt: "asc" } } },
-    orderBy: { createdAt: "desc" },
-  });
-  return NextResponse.json({ orders });
+  try {
+    const orders = await prisma.order.findMany({
+      where: { customerId: session.sub },
+      include: { address: true, items: true, coupon: { select: { code: true } }, history: { orderBy: { createdAt: "asc" } } },
+      orderBy: { createdAt: "desc" },
+    });
+    return NextResponse.json({ orders });
+  } catch (error) {
+    return serverError("Fetch customer orders error", error, "Could not load orders");
+  }
 }
 
 export async function POST(request) {
@@ -23,6 +27,7 @@ export async function POST(request) {
   const parsed = orderInputSchema.safeParse(await parseJson(request));
   if (!parsed.success) return apiError("Invalid order", 422, parsed.error.flatten());
   const input = parsed.data;
+  try {
   const address = await prisma.address.findFirst({ where: { id: input.addressId, userId: session.sub } });
   if (!address) return apiError("Select a valid delivery address", 422);
 
@@ -44,7 +49,6 @@ export async function POST(request) {
   const deliveryCharge = 0;
   const total = Math.max(0, subtotal - discountAmount + deliveryCharge);
 
-  try {
     const order = await prisma.$transaction(async (tx) => {
       for (const product of products) {
         const quantity = quantities.get(product.id);
@@ -75,12 +79,11 @@ export async function POST(request) {
         },
         include: { items: true, address: true },
       });
-    }, { isolationLevel: "Serializable" });
+    });
     return NextResponse.json({ order }, { status: 201 });
   } catch (error) {
     if (error.message?.startsWith("STOCK:")) return apiError(`${error.message.slice(6)} does not have enough stock`, 409);
     if (error.message === "COUPON_LIMIT") return apiError("Coupon usage limit has been reached", 409);
-    console.error("Place order error:", error);
-    return apiError("Order could not be placed", 500);
+    return serverError("Place order error", error, "Order could not be placed");
   }
 }

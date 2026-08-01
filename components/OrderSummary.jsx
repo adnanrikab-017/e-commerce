@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
 import { useDispatch } from 'react-redux'
 import { clearCart } from '@/lib/features/cart/cartSlice'
+import { fetchJson } from '@/lib/client-http'
 
 export default function OrderSummary({ totalPrice, items }) {
   const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '$'
@@ -20,10 +21,12 @@ export default function OrderSummary({ totalPrice, items }) {
   const [coupon, setCoupon] = useState(null)
   const [placing, setPlacing] = useState(false)
   const loadAddresses = async () => {
-    const response = await fetch('/api/addresses', { cache: 'no-store' })
-    if (response.status === 401) return
-    const data = await response.json(); const list = data.addresses || []
-    setAddresses(list); setSelectedAddressId((current) => current || list.find((item) => item.isDefault)?.id || list[0]?.id || '')
+    try {
+      const data = await fetchJson('/api/addresses', { cache: 'no-store' }); const list = data.addresses || []
+      setAddresses(list); setSelectedAddressId((current) => current || list.find((item) => item.isDefault)?.id || list[0]?.id || '')
+    } catch (error) {
+      if (error.status !== 401) toast.error(error.message || 'Could not load addresses')
+    }
   }
   useEffect(() => { loadAddresses() }, [])
   const applyCoupon = async (event) => {
@@ -42,7 +45,7 @@ export default function OrderSummary({ totalPrice, items }) {
     if (!selectedAddressId) return toast.error('Select a delivery address')
     setPlacing(true)
     try {
-      const response = await fetch('/api/orders', {
+      await fetchJson('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -52,11 +55,11 @@ export default function OrderSummary({ totalPrice, items }) {
           items: items.map((item) => ({ productId: item.id, quantity: item.quantity })),
         }),
       })
-      const data = await response.json()
-      if (response.status === 401) return router.push('/login?redirect=/cart')
-      if (!response.ok) throw new Error(data.error || 'Order could not be placed')
       dispatch(clearCart()); toast.success('Order placed successfully'); router.push('/orders')
-    } catch (error) { toast.error(error.message) } finally { setPlacing(false) }
+    } catch (error) {
+      if (error.status === 401) return router.push('/login?redirect=/cart')
+      toast.error(error.message || 'Order could not be placed')
+    } finally { setPlacing(false) }
   }
   const discount = coupon?.discountAmount || 0
   return <div className='w-full max-w-lg lg:max-w-[340px] bg-slate-50/30 border border-slate-200 text-slate-500 text-sm rounded-xl p-7'>
