@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/lib/auth";
+import { authorizeAdmin } from "@/lib/auth";
 import { deleteImage, uploadImage } from "@/lib/cloudinary";
 import { apiError } from "@/lib/http";
 import { NextResponse } from "next/server";
@@ -7,7 +7,8 @@ const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxSize = 8 * 1024 * 1024;
 
 export async function POST(request) {
-  if (!(await requireAdmin())) return apiError("Unauthorized", 401);
+  const authorization = await authorizeAdmin();
+  if (authorization.error) return apiError(authorization.error, authorization.status);
   try {
     const form = await request.formData();
     const files = form.getAll("files");
@@ -33,7 +34,8 @@ export async function POST(request) {
 }
 
 export async function DELETE(request) {
-  if (!(await requireAdmin())) return apiError("Unauthorized", 401);
+  const authorization = await authorizeAdmin();
+  if (authorization.error) return apiError(authorization.error, authorization.status);
   const body = await request.json().catch(() => null);
   if (!body?.publicId) return apiError("Cloudinary public ID is required");
   try {

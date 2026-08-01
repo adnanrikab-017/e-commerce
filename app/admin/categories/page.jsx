@@ -1,6 +1,7 @@
 'use client'
 
 import ImageUploader from '@/components/admin/ImageUploader'
+import { fetchJson } from '@/lib/client-http'
 import { Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
@@ -14,7 +15,7 @@ export default function AdminCategories() {
   const [saving, setSaving] = useState(false)
 
   const load = async () => {
-    try { const response = await fetch('/api/admin/categories', { cache: 'no-store' }); const data = await response.json(); if (!response.ok) throw new Error(data.error); setCategories(data.categories || []) }
+    try { const data = await fetchJson('/api/admin/categories', { cache: 'no-store' }); setCategories(data.categories || []) }
     catch (error) { toast.error(error.message || 'Could not load categories') } finally { setLoading(false) }
   }
   useEffect(() => { load() }, [])
@@ -25,8 +26,7 @@ export default function AdminCategories() {
     setSaving(true)
     try {
       const image = form.images[0]
-      const response = await fetch('/api/admin/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name, imageUrl: image.url, imagePublicId: image.publicId, isFeatured: form.isFeatured }) })
-      const data = await response.json(); if (!response.ok) throw new Error(data.details?.fieldErrors ? Object.values(data.details.fieldErrors).flat()[0] : data.error)
+      const data = await fetchJson('/api/admin/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name, imageUrl: image.url, imagePublicId: image.publicId, isFeatured: form.isFeatured }) })
       setCategories((items) => [data.category, ...items]); setForm(emptyCategory)
       window.dispatchEvent(new CustomEvent('gocart:categories-changed', { detail: data.category }))
       toast.success('Category created and available for products')
@@ -35,9 +35,8 @@ export default function AdminCategories() {
 
   const remove = async (id) => {
     if (!confirm('Delete this category and its Cloudinary image?')) return
-    const response = await fetch(`/api/admin/categories?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); const data = await response.json()
-    if (!response.ok) return toast.error(data.error || 'Could not delete category')
-    setCategories((items) => items.filter((item) => item.id !== id)); toast.success('Category deleted')
+    try { await fetchJson(`/api/admin/categories?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); setCategories((items) => items.filter((item) => item.id !== id)); toast.success('Category deleted') }
+    catch (error) { toast.error(error.message || 'Could not delete category') }
   }
 
   return <div className='mb-20 max-w-6xl text-slate-700'>

@@ -1,6 +1,7 @@
 'use client'
 
 import { cropAndCompressImage, ACCEPTED_IMAGE_TYPES } from '@/lib/client-image'
+import { fetchJson } from '@/lib/client-http'
 import { ImagePlus, UploadCloud, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
@@ -46,9 +47,7 @@ export default function ImageUploader({ value = [], onChange, multiple = false, 
       const landscape = aspect === 'landscape'
       const processed = await cropAndCompressImage(current, { width: landscape ? 1600 : 1000, height: landscape ? 900 : 1000, zoom, offsetX, offsetY })
       const payload = new FormData(); payload.append('files', processed)
-      const response = await fetch('/api/admin/uploads', { method: 'POST', body: payload })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Upload failed')
+      const data = await fetchJson('/api/admin/uploads', { method: 'POST', body: payload })
       onChange(multiple ? [...value, ...data.images].slice(0, maxFiles) : data.images)
       toast.success('Image optimized and uploaded')
       setCurrent(null)
