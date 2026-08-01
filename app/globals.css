@@ -1,19 +1,17 @@
 @import "tailwindcss";
 
-@layer components {
-    @keyframes marqueeScroll {
-        0% {
-            transform: translateX(0%);
-        }
-        100% {
-            transform: translateX(-50%);
-        }
-    }
-}
-
 @layer base {
     button {
         cursor: pointer;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
     }
 }
 

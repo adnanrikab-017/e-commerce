@@ -1,0 +1,15 @@
+ALTER TABLE `Category`
+  ADD COLUMN `imagePublicId` VARCHAR(191) NULL;
+
+ALTER TABLE `ProductImage`
+  ADD COLUMN `publicId` VARCHAR(191) NULL;
+
+ALTER TABLE `Banner`
+  ADD COLUMN `imagePublicId` VARCHAR(191) NULL,
+  ADD COLUMN `mobileImagePublicId` VARCHAR(191) NULL,
+  ADD COLUMN `mainHeading` VARCHAR(191) NULL,
+  ADD COLUMN `subHeading` VARCHAR(191) NULL,
+  ADD COLUMN `description` TEXT NULL,
+  ADD COLUMN `offerText` VARCHAR(191) NULL,
+  ADD COLUMN `secondaryText` VARCHAR(191) NULL,
+  ADD COLUMN `buttonText` VARCHAR(191) NULL;

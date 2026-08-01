@@ -11,11 +11,13 @@ const productInclude = {
   images: { orderBy: { position: "asc" } },
 };
 
-export async function GET() {
+export async function GET(request) {
   if (!(await requireAdmin())) return apiError("Unauthorized", 401);
   try {
+    const status = new URL(request.url).searchParams.get("status");
+    const where = ["DRAFT", "PUBLISHED", "HIDDEN", "OUT_OF_STOCK"].includes(status) ? { status } : {};
     const [products, categories] = await Promise.all([
-      prisma.product.findMany({ include: productInclude, orderBy: { createdAt: "desc" } }),
+      prisma.product.findMany({ where, include: productInclude, orderBy: { createdAt: "desc" } }),
       prisma.category.findMany({ select: { id: true, name: true }, where: { isActive: true }, orderBy: { name: "asc" } }),
     ]);
     return NextResponse.json({ products, categories });
@@ -38,7 +40,7 @@ export async function POST(request) {
         description: data.description || null,
         salePrice: data.salePrice ?? null,
         slug: `${slugify(data.name)}-${Date.now().toString(36)}`,
-        images: { create: images.map((url, position) => ({ url, position, isFeatured: position === 0 })) },
+        images: { create: images.map((image, position) => ({ ...image, position, isFeatured: position === 0 })) },
       },
       include: productInclude,
     });
@@ -58,7 +60,7 @@ export async function PATCH(request) {
   if (!body?.id || !parsed.success) return apiError("Invalid product", 422, parsed.error?.flatten());
   const { images, ...data } = parsed.data;
   try {
-    const previousImages = await prisma.productImage.findMany({ where: { productId: body.id }, select: { url: true } });
+    const previousImages = await prisma.productImage.findMany({ where: { productId: body.id }, select: { url: true, publicId: true } });
     const product = await prisma.$transaction(async (tx) => {
       await tx.productImage.deleteMany({ where: { productId: body.id } });
       return tx.product.update({
@@ -68,13 +70,13 @@ export async function PATCH(request) {
           shortDescription: data.shortDescription || null,
           description: data.description || null,
           salePrice: data.salePrice ?? null,
-          images: { create: images.map((url, position) => ({ url, position, isFeatured: position === 0 })) },
+          images: { create: images.map((image, position) => ({ ...image, position, isFeatured: position === 0 })) },
         },
         include: productInclude,
       });
     });
-    const retained = new Set(images);
-    await Promise.allSettled(previousImages.filter((image) => !retained.has(image.url)).map((image) => publicIdFromUrl(image.url)).filter(Boolean).map(deleteImage));
+    const retained = new Set(images.map((image) => image.publicId));
+    await Promise.allSettled(previousImages.filter((image) => !retained.has(image.publicId)).map((image) => image.publicId || publicIdFromUrl(image.url)).filter(Boolean).map(deleteImage));
     return NextResponse.json({ product });
   } catch (error) {
     if (error.code === "P2002") return apiError("SKU already exists", 409);
@@ -88,9 +90,9 @@ export async function DELETE(request) {
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return apiError("Product ID is required");
   try {
-    const images = await prisma.productImage.findMany({ where: { productId: id }, select: { url: true } });
+    const images = await prisma.productImage.findMany({ where: { productId: id }, select: { url: true, publicId: true } });
     await prisma.product.delete({ where: { id } });
-    await Promise.allSettled(images.map((image) => publicIdFromUrl(image.url)).filter(Boolean).map(deleteImage));
+    await Promise.allSettled(images.map((image) => image.publicId || publicIdFromUrl(image.url)).filter(Boolean).map(deleteImage));
     return NextResponse.json({ success: true });
   } catch (error) {
     if (error.code === "P2025") return apiError("Product not found", 404);

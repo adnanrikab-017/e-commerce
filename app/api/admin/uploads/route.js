@@ -3,7 +3,7 @@ import { deleteImage, uploadImage } from "@/lib/cloudinary";
 import { apiError } from "@/lib/http";
 import { NextResponse } from "next/server";
 
-const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
+const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxSize = 8 * 1024 * 1024;
 
 export async function POST(request) {
@@ -14,14 +14,21 @@ export async function POST(request) {
     if (!files.length || files.length > 12) return apiError("Upload between 1 and 12 images");
     for (const file of files) {
       if (!(file instanceof File) || !allowedTypes.has(file.type) || file.size > maxSize) {
-        return apiError("Images must be JPG, PNG, WebP, or AVIF and no larger than 8 MB");
+        return apiError("Images must be JPG, PNG, or WebP and no larger than 8 MB", 422);
       }
     }
-    const images = await Promise.all(files.map(uploadImage));
+    const results = await Promise.allSettled(files.map(uploadImage));
+    const failed = results.find((result) => result.status === "rejected");
+    if (failed) {
+      await Promise.allSettled(results.filter((result) => result.status === "fulfilled").map((result) => deleteImage(result.value.publicId)));
+      throw failed.reason;
+    }
+    const images = results.map((result) => result.value);
     return NextResponse.json({ images });
   } catch (error) {
     console.error("Image upload error:", error);
-    return apiError(error.message || "Image upload failed", 500);
+    const configurationError = error.message?.includes("configuration is incomplete");
+    return apiError(error.message || "Image upload failed", configurationError ? 503 : 502);
   }
 }
 

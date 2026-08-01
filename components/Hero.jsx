@@ -1,54 +1,33 @@
 'use client'
+
 import { assets } from '@/assets/assets'
-import { ArrowRightIcon, ChevronRightIcon } from 'lucide-react'
-import Image from 'next/image'
-import React from 'react'
+import { ArrowRight, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
+import { useCallback, useEffect, useState } from 'react'
 import CategoriesMarquee from './CategoriesMarquee'
 
-const Hero = () => {
+const fallback = { id: 'fallback', title: 'NEWS', subHeading: 'Free Shipping on Orders Above $50!', mainHeading: "Gadgets you'll love. Prices you'll trust.", description: 'Discover products selected for quality, value, and everyday usefulness.', offerText: '20% OFF', secondaryText: 'Best Products', buttonText: 'LEARN MORE', linkUrl: '/shop', imageUrl: assets.hero_model_img.src, mobileImageUrl: assets.hero_product_img1.src }
 
-    const currency = process.env.NEXT_PUBLIC_CURRENCY_SYMBOL || '$'
-
-    return (
-        <div className='mx-6'>
-            <div className='flex max-xl:flex-col gap-8 max-w-7xl mx-auto my-10'>
-                <div className='relative flex-1 flex flex-col bg-green-200 rounded-3xl xl:min-h-100 group'>
-                    <div className='p-5 sm:p-16'>
-                        <div className='inline-flex items-center gap-3 bg-green-300 text-green-600 pr-4 p-1 rounded-full text-xs sm:text-sm'>
-                            <span className='bg-green-600 px-3 py-1 max-sm:ml-1 rounded-full text-white text-xs'>NEWS</span> Free Shipping on Orders Above $50! <ChevronRightIcon className='group-hover:ml-2 transition-all' size={16} />
-                        </div>
-                        <h2 className='text-3xl sm:text-5xl leading-[1.2] my-3 font-medium bg-gradient-to-r from-slate-600 to-[#A0FF74] bg-clip-text text-transparent max-w-xs  sm:max-w-md'>
-                            Gadgets you'll love. Prices you'll trust.
-                        </h2>
-                        <div className='text-slate-800 text-sm font-medium mt-4 sm:mt-8'>
-                            <p>Starts from</p>
-                            <p className='text-3xl'>{currency}4.90</p>
-                        </div>
-                        <button className='bg-slate-800 text-white text-sm py-2.5 px-7 sm:py-5 sm:px-12 mt-4 sm:mt-10 rounded-md hover:bg-slate-900 hover:scale-103 active:scale-95 transition'>LEARN MORE</button>
-                    </div>
-                    <Image className='sm:absolute bottom-0 right-0 md:right-10 w-full sm:max-w-sm' src={assets.hero_model_img} alt="" />
-                </div>
-                <div className='flex flex-col md:flex-row xl:flex-col gap-5 w-full xl:max-w-sm text-sm text-slate-600'>
-                    <div className='flex-1 flex items-center justify-between w-full bg-orange-200 rounded-3xl p-6 px-8 group'>
-                        <div>
-                            <p className='text-3xl font-medium bg-gradient-to-r from-slate-800 to-[#FFAD51] bg-clip-text text-transparent max-w-40'>Best products</p>
-                            <p className='flex items-center gap-1 mt-4'>View more <ArrowRightIcon className='group-hover:ml-2 transition-all' size={18} /> </p>
-                        </div>
-                        <Image className='w-35' src={assets.hero_product_img1} alt="" />
-                    </div>
-                    <div className='flex-1 flex items-center justify-between w-full bg-blue-200 rounded-3xl p-6 px-8 group'>
-                        <div>
-                            <p className='text-3xl font-medium bg-gradient-to-r from-slate-800 to-[#78B2FF] bg-clip-text text-transparent max-w-40'>20% discounts</p>
-                            <p className='flex items-center gap-1 mt-4'>View more <ArrowRightIcon className='group-hover:ml-2 transition-all' size={18} /> </p>
-                        </div>
-                        <Image className='w-35' src={assets.hero_product_img2} alt="" />
-                    </div>
-                </div>
-            </div>
-            <CategoriesMarquee />
-        </div>
-
-    )
+export default function Hero() {
+  const [banners, setBanners] = useState([]); const [active, setActive] = useState(0); const [loading, setLoading] = useState(true)
+  const load = useCallback(() => fetch('/api/banners', { cache: 'no-store' }).then((response) => response.ok ? response.json() : Promise.reject()).then((data) => { setBanners(data.banners || []); setActive(0) }).catch(() => setBanners([])).finally(() => setLoading(false)), [])
+  useEffect(() => { load(); window.addEventListener('gocart:hero-changed', load); return () => window.removeEventListener('gocart:hero-changed', load) }, [load])
+  useEffect(() => { if (banners.length < 2) return; const timer = setInterval(() => setActive((index) => (index + 1) % banners.length), 7000); return () => clearInterval(timer) }, [banners.length])
+  const banner = banners[active] || fallback
+  return <div className='mx-6'>
+    <section aria-busy={loading} className='relative mx-auto my-10 min-h-[430px] max-w-7xl overflow-hidden rounded-3xl bg-green-100 shadow-sm'>
+      <img key={banner.imageUrl} src={banner.imageUrl} alt='' className='absolute inset-0 h-full w-full object-cover transition-opacity duration-500' />
+      <div className='absolute inset-0 bg-gradient-to-r from-white/95 via-white/80 to-transparent'/>
+      <div className='relative z-10 flex min-h-[430px] max-w-2xl flex-col justify-center p-6 sm:p-14'>
+        <div className='mb-4 inline-flex w-fit items-center gap-2 rounded-full bg-green-100/90 p-1 pr-4 text-xs text-green-800 sm:text-sm'><span className='rounded-full bg-green-600 px-3 py-1 text-white'>{banner.title || 'NEWS'}</span>{banner.subHeading}<ChevronRight size={16}/></div>
+        <h1 className='max-w-xl text-3xl font-semibold leading-tight text-slate-800 sm:text-5xl'>{banner.mainHeading}</h1>
+        <p className='mt-4 max-w-lg text-sm leading-6 text-slate-600 sm:text-base'>{banner.description}</p>
+        <div className='mt-5 flex flex-wrap gap-2'><span className='rounded-full bg-orange-100 px-4 py-2 text-sm font-bold text-orange-700'>{banner.offerText}</span><span className='rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700'>{banner.secondaryText}</span></div>
+        <Link href={banner.linkUrl || '/shop'} className='mt-7 inline-flex w-fit items-center gap-2 rounded-lg bg-slate-800 px-7 py-3 text-sm font-medium text-white transition hover:bg-slate-900'>{banner.buttonText}<ArrowRight size={17}/></Link>
+      </div>
+      {banner.mobileImageUrl && <img src={banner.mobileImageUrl} alt='' className='absolute bottom-0 right-3 hidden max-h-[78%] max-w-[36%] object-contain lg:block'/>}
+      {banners.length > 1 && <div className='absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 gap-2'>{banners.map((item, index) => <button key={item.id} onClick={() => setActive(index)} aria-label={`Show banner ${index + 1}`} className={`h-2 rounded-full transition-all ${index === active ? 'w-8 bg-green-600' : 'w-2 bg-slate-400'}`}/>)}</div>}
+    </section>
+    <CategoriesMarquee />
+  </div>
 }
-
-export default Hero

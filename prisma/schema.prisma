@@ -71,6 +71,7 @@ model Category {
   name       String
   slug       String    @unique
   imageUrl   String?
+  imagePublicId String?
   isActive   Boolean   @default(true)
   isFeatured Boolean   @default(false)
   createdAt  DateTime  @default(now())
@@ -122,6 +123,7 @@ model ProductImage {
   id         String  @id @default(cuid())
   productId  String
   url        String
+  publicId   String?
   alt        String?
   position   Int     @default(0)
   isFeatured Boolean @default(false)
@@ -266,7 +268,15 @@ model Banner {
   type           BannerType
   title          String?
   imageUrl       String
+  imagePublicId  String?
   mobileImageUrl String?
+  mobileImagePublicId String?
+  mainHeading    String?
+  subHeading     String?
+  description    String?    @db.Text
+  offerText      String?
+  secondaryText  String?
+  buttonText     String?
   linkUrl        String?
   position       Int        @default(0)
   startsAt       DateTime?
