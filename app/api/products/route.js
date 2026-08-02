@@ -12,6 +12,7 @@ export async function GET(request) {
     include: {
       category: { select: { id: true, name: true, slug: true } },
       images: { orderBy: { position: "asc" } },
+      variants: { orderBy: { position: "asc" } },
       reviews: { where: { isVisible: true }, include: { user: { select: { name: true } } } },
     },
     orderBy: { createdAt: "desc" },

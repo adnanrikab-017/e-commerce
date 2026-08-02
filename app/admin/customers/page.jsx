@@ -8,6 +8,7 @@ import { Users, UserCheck, UserX, ShoppingBag } from "lucide-react";
 export default function AdminCustomers() {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   const fetchCustomers = async () => {
     try {
@@ -48,6 +49,14 @@ export default function AdminCustomers() {
       toast.error("Error updating status");
     }
   };
+  const resetPassword = async (customer) => {
+    const password = prompt(`Enter a new password for ${customer.name} (minimum 8 characters):`);
+    if (!password) return;
+    const confirmation = prompt("Confirm the new password:");
+    if (confirmation !== password || !confirm(`Reset ${customer.name}'s password now?`)) return toast.error("Password confirmation did not match");
+    const res = await fetch('/api/admin/customers/password', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: customer.id, password, confirmation }) });
+    const data = await res.json(); if (!res.ok) return toast.error(data.error); toast.success('Password reset successfully');
+  };
 
   return (
     <div className="text-slate-700 max-w-7xl mb-20">
@@ -55,6 +64,7 @@ export default function AdminCustomers() {
         <p className="text-sm font-medium text-green-700">Customer Management</p>
         <h1 className="text-3xl font-semibold">Customers</h1>
       </div>
+      <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search customer by name, email, or phone" className="mb-4 w-full max-w-md rounded-xl border border-slate-200 bg-white px-4 py-2.5" />
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
@@ -79,7 +89,7 @@ export default function AdminCustomers() {
                   <td colSpan="6" className="py-8 text-center text-slate-500">No registered customers found.</td>
                 </tr>
               ) : (
-                customers.map((c) => (
+                customers.filter((c) => !search || [c.name,c.email,c.phone].some((value) => value?.toLowerCase().includes(search.toLowerCase()))).map((c) => (
                   <tr key={c.id} className="hover:bg-slate-50 transition">
                     <td className="py-3.5 px-4 font-medium text-slate-800">{c.name}</td>
                     <td className="py-3.5 px-4 text-slate-600">
@@ -110,6 +120,7 @@ export default function AdminCustomers() {
                       >
                         {c.isActive ? "Disable Account" : "Enable Account"}
                       </button>
+                      <button onClick={() => resetPassword(c)} className="ml-2 rounded-lg bg-slate-800 px-3 py-1 text-xs font-medium text-white">Reset Password</button>
                     </td>
                   </tr>
                 ))

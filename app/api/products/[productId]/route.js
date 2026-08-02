@@ -9,6 +9,7 @@ export async function GET(_request, { params }) {
     include: {
       category: { select: { id: true, name: true, slug: true } },
       images: { orderBy: { position: "asc" } },
+      variants: { orderBy: { position: "asc" } },
       reviews: { where: { isVisible: true }, include: { user: { select: { name: true } } } },
     },
   });

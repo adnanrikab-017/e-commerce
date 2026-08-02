@@ -24,10 +24,13 @@ export default function Cart() {
         setTotalPrice(0);
         const cartArray = [];
         for (const [key, value] of Object.entries(cartItems)) {
-            const product = products.find(product => product.id === key);
+            const [productId, variantId] = key.split(':');
+            const product = products.find(product => product.id === productId);
             if (product) {
+                const variant = product.variants?.find((item) => item.id === variantId);
                 cartArray.push({
                     ...product,
+                    cartKey: key, variantId: variant?.id || null, variantName: variant?.name || null, availableStock: variant?.stock ?? product.stock,
                     quantity: value,
                 });
                 setTotalPrice(prev => prev + (product.salePrice ?? product.price) * value);
@@ -37,7 +40,7 @@ export default function Cart() {
     }
 
     const handleDeleteItemFromCart = (productId) => {
-        dispatch(deleteItemFromCart({ productId }))
+        dispatch(deleteItemFromCart({ cartKey: productId }))
     }
 
     useEffect(() => {
@@ -67,7 +70,7 @@ export default function Cart() {
                         <tbody>
                             {
                                 cartArray.map((item, index) => (
-                                    <tr key={index} className="space-x-2">
+                                    <tr key={item.cartKey} className="space-x-2">
                                         <td className="flex gap-3 my-4">
                                             <div className="flex gap-3 items-center justify-center bg-slate-100 size-18 rounded-md">
                                                 <Image src={item.images[0]} className="h-14 w-auto" alt="" width={45} height={45} />
@@ -75,15 +78,16 @@ export default function Cart() {
                                             <div>
                                                 <p className="max-sm:text-sm">{item.name}</p>
                                                 <p className="text-xs text-slate-500">{item.category?.name}</p>
+                                                {item.variantName && <p className="text-xs font-medium text-green-700">Size: {item.variantName}</p>}
                                                 <p>{currency}{item.salePrice ?? item.price}</p>
                                             </div>
                                         </td>
                                         <td className="text-center">
-                                            <Counter productId={item.id} />
+                                            <Counter productId={item.id} variantId={item.variantId} max={item.availableStock} />
                                         </td>
                                         <td className="text-center">{currency}{((item.salePrice ?? item.price) * item.quantity).toLocaleString()}</td>
                                         <td className="text-center max-md:hidden">
-                                            <button onClick={() => handleDeleteItemFromCart(item.id)} className=" text-red-500 hover:bg-red-50 p-2.5 rounded-full active:scale-95 transition-all">
+                                            <button onClick={() => handleDeleteItemFromCart(item.cartKey)} className=" text-red-500 hover:bg-red-50 p-2.5 rounded-full active:scale-95 transition-all">
                                                 <Trash2Icon size={18} />
                                             </button>
                                         </td>

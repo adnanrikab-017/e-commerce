@@ -9,6 +9,7 @@ const productInclude = {
   category: { select: { id: true, name: true } },
   brand: { select: { id: true, name: true } },
   images: { orderBy: { position: "asc" } },
+  variants: { orderBy: { position: "asc" } },
 };
 
 export async function GET(request) {
@@ -31,16 +32,18 @@ export async function POST(request) {
   if (!(await requireAdmin())) return apiError("Unauthorized", 401);
   const parsed = productInputSchema.safeParse(await parseJson(request));
   if (!parsed.success) return apiError("Invalid product", 422, parsed.error.flatten());
-  const { images, ...data } = parsed.data;
+  const { images, variants, ...data } = parsed.data;
   try {
     const product = await prisma.product.create({
       data: {
         ...data,
+        stock: variants.length ? variants.reduce((sum, item) => sum + (item.isSoldOut ? 0 : item.stock), 0) : data.stock,
         shortDescription: data.shortDescription || null,
         description: data.description || null,
         salePrice: data.salePrice ?? null,
         slug: `${slugify(data.name)}-${Date.now().toString(36)}`,
         images: { create: images.map((image, position) => ({ ...image, position, isFeatured: position === 0 })) },
+        variants: { create: variants.map((variant, position) => ({ name: variant.name, stock: variant.stock, isSoldOut: variant.isSoldOut, position })) },
       },
       include: productInclude,
     });
@@ -58,19 +61,22 @@ export async function PATCH(request) {
   const body = await parseJson(request);
   const parsed = productInputSchema.safeParse(body);
   if (!body?.id || !parsed.success) return apiError("Invalid product", 422, parsed.error?.flatten());
-  const { images, ...data } = parsed.data;
+  const { images, variants, ...data } = parsed.data;
   try {
     const previousImages = await prisma.productImage.findMany({ where: { productId: body.id }, select: { url: true, publicId: true } });
     const product = await prisma.$transaction(async (tx) => {
       await tx.productImage.deleteMany({ where: { productId: body.id } });
+      await tx.productVariant.deleteMany({ where: { productId: body.id } });
       return tx.product.update({
         where: { id: body.id },
         data: {
           ...data,
+          stock: variants.length ? variants.reduce((sum, item) => sum + (item.isSoldOut ? 0 : item.stock), 0) : data.stock,
           shortDescription: data.shortDescription || null,
           description: data.description || null,
           salePrice: data.salePrice ?? null,
           images: { create: images.map((image, position) => ({ ...image, position, isFeatured: position === 0 })) },
+          variants: { create: variants.map((variant, position) => ({ name: variant.name, stock: variant.stock, isSoldOut: variant.isSoldOut, position })) },
         },
         include: productInclude,
       });
