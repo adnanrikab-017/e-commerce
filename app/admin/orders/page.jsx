@@ -32,6 +32,8 @@ export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [paymentSettings, setPaymentSettings] = useState({ BKASH: { number: "", enabled: false }, NAGAD: { number: "", enabled: false } });
+  const [savingPayments, setSavingPayments] = useState(false);
 
   const fetchOrders = async () => {
     try {
@@ -52,7 +54,31 @@ export default function AdminOrders() {
 
   useEffect(() => {
     fetchOrders();
+    fetch("/api/payment-settings", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => setPaymentSettings(data.settings || paymentSettings))
+      .catch(() => toast.error("Could not load payment settings"));
   }, []);
+
+  const savePaymentSettings = async (event) => {
+    event.preventDefault();
+    setSavingPayments(true);
+    try {
+      const response = await fetch("/api/admin/payment-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(paymentSettings),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || "Could not save payment settings");
+      setPaymentSettings(data.settings);
+      toast.success("Payment numbers updated");
+    } catch (error) {
+      toast.error(error.message || "Could not save payment settings");
+    } finally {
+      setSavingPayments(false);
+    }
+  };
 
   const handleStatusChange = async (id, newStatus) => {
     try {
@@ -78,6 +104,20 @@ export default function AdminOrders() {
         <p className="text-sm font-medium text-green-700">Fulfillment & Operations</p>
         <h1 className="text-3xl font-semibold">Orders</h1>
       </div>
+
+      <form onSubmit={savePaymentSettings} className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold">Mobile Payment Settings</h2>
+          <p className="text-sm text-slate-500">Customers will send money to these numbers before submitting their transaction ID.</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {["BKASH", "NAGAD"].map((method) => <div key={method} className="rounded-lg border border-slate-200 p-4">
+            <label className="flex items-center justify-between font-medium"><span>{method}</span><span className="flex items-center gap-2 text-sm"><input type="checkbox" checked={paymentSettings[method]?.enabled || false} onChange={(event) => setPaymentSettings((current) => ({ ...current, [method]: { ...current[method], enabled: event.target.checked } }))} /> Enabled</span></label>
+            <input type="tel" value={paymentSettings[method]?.number || ""} onChange={(event) => setPaymentSettings((current) => ({ ...current, [method]: { ...current[method], number: event.target.value } }))} placeholder={`${method} Send Money number`} className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>)}
+        </div>
+        <button disabled={savingPayments} className="mt-4 rounded-lg bg-green-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">{savingPayments ? "Saving..." : "Save Payment Settings"}</button>
+      </form>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
@@ -159,6 +199,11 @@ export default function AdminOrders() {
             </div>
             <div className="space-y-3 text-sm">
               <p><strong>Customer:</strong> {selectedOrder.customer?.name} ({selectedOrder.customer?.email || selectedOrder.customer?.phone})</p>
+              <p><strong>Payment:</strong> {selectedOrder.paymentMethod}</p>
+              {selectedOrder.paymentMethod !== "COD" && <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                <p><strong>Paid to:</strong> {selectedOrder.paymentAccount || "Not recorded"}</p>
+                <p className="mt-1"><strong>Transaction ID:</strong> <span className="font-mono">{selectedOrder.paymentTransactionId || "Not recorded"}</span></p>
+              </div>}
               {selectedOrder.address && (
                 <p><strong>Shipping Address:</strong> {selectedOrder.address.address}, {selectedOrder.address.area}</p>
               )}

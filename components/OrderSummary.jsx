@@ -1,6 +1,6 @@
 'use client'
 
-import { Pencil, PlusIcon, Trash2, XIcon } from 'lucide-react'
+import { Copy, Pencil, PlusIcon, Trash2, XIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import AddressModal from './AddressModal'
 import toast from 'react-hot-toast'
@@ -14,6 +14,8 @@ export default function OrderSummary({ totalPrice, items }) {
   const router = useRouter(); const dispatch = useDispatch()
   const [addresses, setAddresses] = useState([])
   const [paymentMethod, setPaymentMethod] = useState('COD')
+  const [paymentSettings, setPaymentSettings] = useState({ BKASH: { number: '', enabled: false }, NAGAD: { number: '', enabled: false } })
+  const [paymentTransactionId, setPaymentTransactionId] = useState('')
   const [selectedAddressId, setSelectedAddressId] = useState('')
   const [showAddressModal, setShowAddressModal] = useState(false)
   const [editingAddress, setEditingAddress] = useState(null)
@@ -30,7 +32,11 @@ export default function OrderSummary({ totalPrice, items }) {
       if (error.status !== 401) toast.error(error.message || 'Could not load addresses')
     }
   }
-  useEffect(() => { loadAddresses(); fetch('/api/delivery-charges', { cache: 'no-store' }).then((r) => r.json()).then((d) => { setCharges(d.charges || []); if (d.charges?.length) setDeliveryZone(d.charges[0].zone) }) }, [])
+  useEffect(() => {
+    loadAddresses()
+    fetchJson('/api/delivery-charges', { cache: 'no-store' }).then((d) => { setCharges(d.charges || []); if (d.charges?.length) setDeliveryZone(d.charges[0].zone) }).catch(() => toast.error('Could not load delivery options'))
+    fetchJson('/api/payment-settings', { cache: 'no-store' }).then((d) => setPaymentSettings(d.settings || {})).catch(() => toast.error('Could not load payment methods'))
+  }, [])
   const applyCoupon = async (event) => {
     event.preventDefault()
     const response = await fetch('/api/coupons/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: couponCodeInput, subtotal: totalPrice }) })
@@ -45,6 +51,7 @@ export default function OrderSummary({ totalPrice, items }) {
   }
   const placeOrder = async () => {
     if (!selectedAddressId) return toast.error('Select a delivery address')
+    if (paymentMethod !== 'COD' && paymentTransactionId.trim().length < 6) return toast.error('Enter the transaction ID after sending money')
     setPlacing(true)
     try {
       await fetchJson('/api/orders', {
@@ -53,6 +60,7 @@ export default function OrderSummary({ totalPrice, items }) {
         body: JSON.stringify({
           addressId: selectedAddressId,
           paymentMethod,
+          paymentTransactionId: paymentMethod === 'COD' ? null : paymentTransactionId.trim(),
           couponCode: coupon?.code || null,
           deliveryZone,
           items: items.map((item) => ({ productId: item.id, variantId: item.variantId, quantity: item.quantity })),
@@ -68,7 +76,15 @@ export default function OrderSummary({ totalPrice, items }) {
   const deliveryCharge = Number(charges.find((item) => item.zone === deliveryZone)?.amount || 0)
   return <div className='w-full max-w-lg lg:max-w-[340px] bg-slate-50/30 border border-slate-200 text-slate-500 text-sm rounded-xl p-7'>
     <h2 className='text-xl font-medium text-slate-600'>Payment Summary</h2><p className='text-slate-400 text-xs my-4'>Payment Method</p>
-    {['COD', 'BKASH', 'NAGAD'].map((method) => <label key={method} className='flex gap-2 items-center mt-1'><input type='radio' name='payment' onChange={() => setPaymentMethod(method)} checked={paymentMethod === method} />{method}</label>)}
+    {['COD', 'BKASH', 'NAGAD'].map((method) => {
+      const disabled = method !== 'COD' && !paymentSettings[method]?.enabled
+      return <label key={method} className={`flex gap-2 items-center mt-1 ${disabled ? 'opacity-50' : ''}`}><input type='radio' name='payment' disabled={disabled} onChange={() => { setPaymentMethod(method); setPaymentTransactionId('') }} checked={paymentMethod === method} />{method}{disabled && <span className='text-xs'>(Unavailable)</span>}</label>
+    })}
+    {paymentMethod !== 'COD' && paymentSettings[paymentMethod]?.enabled && <div className='mt-3 rounded-lg border border-green-200 bg-green-50 p-3 text-slate-700'>
+      <p className='text-xs'>Send Money to this {paymentMethod} number</p>
+      <div className='mt-1 flex items-center justify-between gap-2'><strong className='text-base'>{paymentSettings[paymentMethod].number}</strong><button type='button' className='flex items-center gap-1 rounded border border-green-300 bg-white px-2 py-1 text-xs' onClick={async () => { await navigator.clipboard.writeText(paymentSettings[paymentMethod].number); toast.success('Number copied') }}><Copy size={14} /> Copy</button></div>
+      <label className='mt-3 block text-xs font-medium'>Transaction ID<input value={paymentTransactionId} onChange={(event) => setPaymentTransactionId(event.target.value)} minLength={6} maxLength={100} required className='mt-1 w-full rounded border border-slate-300 bg-white p-2 text-sm' placeholder='Enter TrxID after payment' /></label>
+    </div>}
     <div className='mt-4'><p>Delivery area</p>{charges.map((charge) => <label key={charge.zone} className='mt-1 flex items-center gap-2'><input type='radio' checked={deliveryZone === charge.zone} onChange={() => setDeliveryZone(charge.zone)} />{charge.label} ({currency}{Number(charge.amount).toFixed(0)})</label>)}</div>
     <div className='my-4 py-4 border-y border-slate-200'><p>Address</p>{addresses.length > 0 && <div className='space-y-2 my-3'>{addresses.map((address) => <label key={address.id} className='flex items-start gap-2 border border-slate-200 rounded p-2'><input type='radio' name='address' checked={selectedAddressId === address.id} onChange={() => setSelectedAddressId(address.id)} /><span className='flex-1'>{address.name}, {address.address}, {address.area}, {address.phone}{address.isDefault && <b className='ml-1'>(Default)</b>}</span><button type='button' title='Edit address' onClick={() => { setEditingAddress(address); setShowAddressModal(true) }}><Pencil size={15} /></button><button type='button' title='Delete address' onClick={() => deleteAddress(address.id)}><Trash2 size={15} /></button></label>)}</div>}<button type='button' className='flex items-center gap-1 text-slate-600' onClick={() => { setEditingAddress(null); setShowAddressModal(true) }}>Add Address <PlusIcon size={18} /></button></div>
     <div className='pb-4 border-b border-slate-200'><div className='flex justify-between'><div><p>Subtotal:</p><p>Shipping:</p>{coupon && <p>Coupon:</p>}</div><div className='text-right font-medium'><p>{currency}{totalPrice.toFixed(2)}</p><p>Free</p>{coupon && <p>-{currency}{discount.toFixed(2)}</p>}</div></div>
@@ -76,6 +92,6 @@ export default function OrderSummary({ totalPrice, items }) {
     </div>
     <div className='flex justify-between py-4'><p>Total:</p><p className='font-medium'>{currency}{Math.max(0, totalPrice - discount + deliveryCharge).toFixed(2)}</p></div>
     <button disabled={placing} onClick={placeOrder} className='w-full bg-slate-700 text-white py-2.5 rounded disabled:opacity-50'>{placing ? 'Placing order...' : 'Place Order'}</button>
-    {showAddressModal && <AddressModal initialAddress={editingAddress} setShowAddressModal={setShowAddressModal} onSaved={(address) => { setAddresses((list) => [address, ...list.filter((item) => item.id !== address.id).map((item) => address.isDefault ? { ...item, isDefault: false } : item)]); setSelectedAddressId(address.id); setEditingAddress(null) }} />}
+    {showAddressModal && <AddressModal initialAddress={editingAddress} setShowAddressModal={setShowAddressModal} onSaved={async (address) => { setSelectedAddressId(address.id); setEditingAddress(null); await loadAddresses() }} />}
   </div>
 }

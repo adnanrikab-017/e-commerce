@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth";
 import { calculateDiscount, couponUnavailableReason } from "@/lib/commerce";
 import { apiError, parseJson, serverError } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
+import { getPaymentSettings } from "@/lib/payment-settings";
 import { orderInputSchema } from "@/lib/validation";
 import { NextResponse } from "next/server";
 
@@ -48,6 +49,18 @@ export async function POST(request) {
         select: { id: true },
       });
       if (!address) throw new CheckoutError("ADDRESS", "Select a valid delivery address", 422);
+
+      let paymentAccount = null;
+      let paymentTransactionId = null;
+      if (input.paymentMethod !== "COD") {
+        const paymentSettings = await getPaymentSettings(tx);
+        const paymentOption = paymentSettings[input.paymentMethod];
+        if (!paymentOption?.enabled || !paymentOption.number) {
+          throw new CheckoutError("PAYMENT", `${input.paymentMethod} payment is currently unavailable`, 422);
+        }
+        paymentAccount = paymentOption.number;
+        paymentTransactionId = input.paymentTransactionId.trim();
+      }
 
       const productIds = [...new Set(input.items.map((item) => item.productId))];
       const products = await tx.product.findMany({
@@ -135,6 +148,8 @@ export async function POST(request) {
           customerId: session.sub,
           addressId: address.id,
           paymentMethod: input.paymentMethod,
+          paymentAccount,
+          paymentTransactionId,
           deliveryZone: input.deliveryZone,
           subtotal,
           discountAmount,
@@ -160,10 +175,13 @@ export async function POST(request) {
         },
         include: { items: true, address: true },
       });
-    });
+    }, { maxWait: 5_000, timeout: 15_000 });
     return NextResponse.json({ order }, { status: 201 });
   } catch (error) {
     if (error instanceof CheckoutError) return apiError(error.message, error.status);
+    if (error?.code === "P2002" && error?.meta?.target?.includes?.("paymentTransactionId")) {
+      return apiError("This transaction ID has already been used", 409);
+    }
     return serverError("Place order error", error, "Order could not be placed");
   }
 }
