@@ -142,14 +142,12 @@ export async function POST(request) {
       );
       const discountAmount = calculateDiscount(coupon, subtotal);
 
-      return tx.order.create({
+      const order = await tx.order.create({
         data: {
           orderNumber: `GC-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(2).toString("hex").toUpperCase()}`,
           customerId: session.sub,
           addressId: address.id,
           paymentMethod: input.paymentMethod,
-          paymentAccount,
-          paymentTransactionId,
           deliveryZone: input.deliveryZone,
           subtotal,
           discountAmount,
@@ -175,11 +173,26 @@ export async function POST(request) {
         },
         include: { items: true, address: true },
       });
+      if (paymentTransactionId) {
+        await tx.websiteSetting.create({
+          data: {
+            key: `payment_transaction:${paymentTransactionId}`,
+            value: {
+              orderId: order.id,
+              method: input.paymentMethod,
+              account: paymentAccount,
+              transactionId: paymentTransactionId,
+              submittedAt: new Date().toISOString(),
+            },
+          },
+        });
+      }
+      return { ...order, paymentAccount, paymentTransactionId };
     }, { maxWait: 5_000, timeout: 15_000 });
     return NextResponse.json({ order }, { status: 201 });
   } catch (error) {
     if (error instanceof CheckoutError) return apiError(error.message, error.status);
-    if (error?.code === "P2002" && error?.meta?.target?.includes?.("paymentTransactionId")) {
+    if (error?.code === "P2002") {
       return apiError("This transaction ID has already been used", 409);
     }
     return serverError("Place order error", error, "Order could not be placed");

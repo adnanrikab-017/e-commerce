@@ -6,8 +6,15 @@ import { NextResponse } from "next/server";
 export async function GET() {
   if (!(await requireAdmin())) return apiError("Unauthorized", 401);
   try {
-    const orders = await prisma.order.findMany({ include: { customer: { select: { id: true, name: true, email: true, phone: true } }, items: true, address: true }, orderBy: { createdAt: "desc" } });
-    return NextResponse.json({ orders });
+    const [orders, paymentRecords] = await Promise.all([
+      prisma.order.findMany({ include: { customer: { select: { id: true, name: true, email: true, phone: true } }, items: true, address: true }, orderBy: { createdAt: "desc" } }),
+      prisma.websiteSetting.findMany({ where: { key: { startsWith: "payment_transaction:" } }, select: { value: true } }),
+    ]);
+    const paymentsByOrder = new Map(paymentRecords.map((record) => [record.value?.orderId, record.value]));
+    return NextResponse.json({ orders: orders.map((order) => {
+      const payment = paymentsByOrder.get(order.id);
+      return { ...order, paymentAccount: payment?.account || null, paymentTransactionId: payment?.transactionId || null };
+    }) });
   } catch (error) { return serverError("Fetch admin orders", error, "Failed to fetch orders"); }
 }
 
