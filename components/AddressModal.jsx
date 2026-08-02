@@ -12,7 +12,7 @@ export default function AddressModal({ setShowAddressModal, onSaved, initialAddr
     try {
       const response = await fetch('/api/addresses', { method: initialAddress ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(address) })
       const data = await response.json()
-      if (!response.ok) throw new Error(data.error || 'Could not save address')
+      if (!response.ok) throw new Error(data.message || data.error || 'Could not save address')
       onSaved?.(data.address); toast.success('Address saved'); setShowAddressModal(false)
     } catch (error) { toast.error(error.message) } finally { setSaving(false) }
   }

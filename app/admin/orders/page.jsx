@@ -41,7 +41,7 @@ export default function AdminOrders() {
       if (res.ok) {
         setOrders(data.orders || []);
       } else {
-        toast.error(data.error || "Failed to load orders");
+        toast.error(data.message || data.error || "Failed to load orders");
       }
     } catch {
       toast.error("Error loading orders");

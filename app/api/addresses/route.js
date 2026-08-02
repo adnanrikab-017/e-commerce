@@ -4,15 +4,15 @@ import { addressInputSchema } from "@/lib/validation";
 import { apiError, parseJson } from "@/lib/http";
 import { NextResponse } from "next/server";
 
-export async function GET() {
-  const session = await requireAuth();
+export async function GET(request) {
+  const session = await requireAuth(request);
   if (!session) return apiError("Unauthorized", 401);
   const addresses = await prisma.address.findMany({ where: { userId: session.sub }, orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }] });
   return NextResponse.json({ addresses });
 }
 
 export async function POST(request) {
-  const session = await requireAuth();
+  const session = await requireAuth(request);
   if (!session) return apiError("Unauthorized", 401);
   const parsed = addressInputSchema.safeParse(await parseJson(request));
   if (!parsed.success) return apiError("Invalid address", 422, parsed.error.flatten());
@@ -26,7 +26,7 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
-  const session = await requireAuth();
+  const session = await requireAuth(request);
   if (!session) return apiError("Unauthorized", 401);
   const body = await parseJson(request);
   const parsed = addressInputSchema.safeParse(body);
@@ -35,23 +35,29 @@ export async function PATCH(request) {
   if (!existing) return apiError("Address not found", 404);
   const address = await prisma.$transaction(async (tx) => {
     if (parsed.data.isDefault) await tx.address.updateMany({ where: { userId: session.sub }, data: { isDefault: false } });
-    return tx.address.update({ where: { id: body.id }, data: parsed.data });
+    const updated = await tx.address.updateMany({
+      where: { id: body.id, userId: session.sub },
+      data: parsed.data,
+    });
+    if (updated.count !== 1) throw new Error("ADDRESS_NOT_FOUND");
+    return tx.address.findFirst({ where: { id: body.id, userId: session.sub } });
   });
   return NextResponse.json({ address });
 }
 
 export async function DELETE(request) {
-  const session = await requireAuth();
+  const session = await requireAuth(request);
   if (!session) return apiError("Unauthorized", 401);
   const id = new URL(request.url).searchParams.get("id");
   const existing = id && await prisma.address.findFirst({ where: { id, userId: session.sub } });
   if (!existing) return apiError("Address not found", 404);
-  if (await prisma.order.count({ where: { addressId: id } })) return apiError("This address is attached to an order and cannot be deleted", 409);
+  if (await prisma.order.count({ where: { addressId: id, customerId: session.sub } })) return apiError("This address is attached to an order and cannot be deleted", 409);
   await prisma.$transaction(async (tx) => {
-    await tx.address.delete({ where: { id } });
+    const deleted = await tx.address.deleteMany({ where: { id, userId: session.sub } });
+    if (deleted.count !== 1) throw new Error("ADDRESS_NOT_FOUND");
     if (existing.isDefault) {
       const replacement = await tx.address.findFirst({ where: { userId: session.sub }, orderBy: { createdAt: "desc" } });
-      if (replacement) await tx.address.update({ where: { id: replacement.id }, data: { isDefault: true } });
+      if (replacement) await tx.address.updateMany({ where: { id: replacement.id, userId: session.sub }, data: { isDefault: true } });
     }
   });
   return NextResponse.json({ success: true });

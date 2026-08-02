@@ -1,11 +1,13 @@
 import { requireAdmin } from "@/lib/auth";
+import { apiError, serverError } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 const number = (value) => Number(value || 0);
 
 export async function GET() {
-  if (!(await requireAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireAdmin())) return apiError("Unauthorized", 401);
+  try {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -27,4 +29,7 @@ export async function GET() {
     lowStockProducts, recentCustomers,
     topSellingProducts: topSellingProducts.map((item) => ({ name: productNames.get(item.productId) || "Deleted product", quantity: item._sum.quantity || 0 })),
   });
+  } catch (error) {
+    return serverError("Fetch dashboard error", error, "Could not load dashboard data");
+  }
 }

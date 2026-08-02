@@ -18,7 +18,7 @@ export default function ProductCard({ product }) {
     const response = await fetch('/api/wishlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productId: product.id }) })
     const data = await response.json()
     if (response.status === 401) return router.push(`/login?redirect=${encodeURIComponent('/wishlist')}`)
-    response.ok ? toast.success('Added to wishlist') : toast.error(data.error || 'Could not update wishlist')
+    response.ok ? toast.success('Added to wishlist') : toast.error(data.message || data.error || 'Could not update wishlist')
   }
 
   return <Link href={`/product/${product.slug || product.id}`} className='group max-xl:mx-auto relative'>

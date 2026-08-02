@@ -43,7 +43,7 @@ function RegisterForm() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Registration failed");
+        throw new Error(data.message || data.error || "Registration failed");
       }
 
       toast.success("Account created successfully!");

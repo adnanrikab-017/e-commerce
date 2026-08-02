@@ -29,7 +29,7 @@ export async function POST(request) {
   } catch (error) {
     console.error("Image upload error:", error);
     const configurationError = error.message?.includes("configuration is incomplete");
-    return apiError(error.message || "Image upload failed", configurationError ? 503 : 502);
+    return apiError(configurationError ? "Image service is not configured" : "Image upload failed", configurationError ? 503 : 502);
   }
 }
 
@@ -43,6 +43,6 @@ export async function DELETE(request) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Image delete error:", error);
-    return apiError(error.message || "Image deletion failed", 500);
+    return apiError("Image deletion failed", 500);
   }
 }

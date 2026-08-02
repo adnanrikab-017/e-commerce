@@ -1,10 +1,11 @@
 import { requireAdmin } from "@/lib/auth";
+import { apiError, serverError } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   if (!(await requireAdmin())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError("Unauthorized", 401);
   }
 
   try {
@@ -25,14 +26,13 @@ export async function GET() {
 
     return NextResponse.json({ customers });
   } catch (error) {
-    console.error("Fetch customers error:", error);
-    return NextResponse.json({ error: "Failed to fetch customers" }, { status: 500 });
+    return serverError("Fetch customers error", error, "Failed to fetch customers");
   }
 }
 
 export async function PATCH(request) {
   if (!(await requireAdmin())) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return apiError("Unauthorized", 401);
   }
 
   try {
@@ -40,17 +40,17 @@ export async function PATCH(request) {
     const { id, isActive } = body;
 
     if (!id || typeof isActive !== "boolean") {
-      return NextResponse.json({ error: "Customer ID and active status required" }, { status: 400 });
+      return apiError("Customer ID and active status required", 400);
     }
 
     const user = await prisma.user.update({
-      where: { id },
+      where: { id, role: "CUSTOMER" },
       data: { isActive },
     });
 
     return NextResponse.json({ success: true, user });
   } catch (error) {
-    console.error("Update customer status error:", error);
-    return NextResponse.json({ error: "Failed to update customer status" }, { status: 500 });
+    if (error?.code === "P2025") return apiError("Customer not found", 404);
+    return serverError("Update customer status error", error, "Failed to update customer status");
   }
 }

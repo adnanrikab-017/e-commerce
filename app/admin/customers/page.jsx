@@ -18,7 +18,7 @@ export default function AdminCustomers() {
       if (res.ok) {
         setCustomers(data.customers || []);
       } else {
-        toast.error(data.error || "Failed to load customers");
+        toast.error(data.message || data.error || "Failed to load customers");
       }
     } catch {
       toast.error("Error loading customers");
@@ -55,7 +55,7 @@ export default function AdminCustomers() {
     const confirmation = prompt("Confirm the new password:");
     if (confirmation !== password || !confirm(`Reset ${customer.name}'s password now?`)) return toast.error("Password confirmation did not match");
     const res = await fetch('/api/admin/customers/password', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: customer.id, password, confirmation }) });
-    const data = await res.json(); if (!res.ok) return toast.error(data.error); toast.success('Password reset successfully');
+    const data = await res.json(); if (!res.ok) return toast.error(data.message || data.error); toast.success('Password reset successfully');
   };
 
   return (

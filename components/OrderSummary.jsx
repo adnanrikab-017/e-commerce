@@ -35,12 +35,12 @@ export default function OrderSummary({ totalPrice, items }) {
     event.preventDefault()
     const response = await fetch('/api/coupons/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: couponCodeInput, subtotal: totalPrice }) })
     const data = await response.json()
-    if (!response.ok) throw new Error(data.error || 'Coupon is not valid')
+    if (!response.ok) throw new Error(data.message || data.error || 'Coupon is not valid')
     setCoupon({ ...data.coupon, discountAmount: data.discountAmount }); toast.success('Coupon applied')
   }
   const deleteAddress = async (id) => {
     const response = await fetch(`/api/addresses?id=${encodeURIComponent(id)}`, { method: 'DELETE' }); const data = await response.json()
-    if (!response.ok) return toast.error(data.error || 'Could not delete address')
+    if (!response.ok) return toast.error(data.message || data.error || 'Could not delete address')
     setAddresses((list) => list.filter((item) => item.id !== id)); if (selectedAddressId === id) setSelectedAddressId('')
   }
   const placeOrder = async () => {
