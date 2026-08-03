@@ -86,6 +86,7 @@ const Navbar = () => {
                                     <button
                                         onClick={handleLogout}
                                         title="Log out"
+                                        aria-label="Log out"
                                         className="text-slate-500 hover:text-red-600 transition p-1 cursor-pointer"
                                     >
                                         <LogOut size={18} />
@@ -112,7 +113,7 @@ const Navbar = () => {
                             <span className="absolute right-1 top-1 grid size-4 place-items-center rounded-full bg-green-600 text-[9px] text-white">{cartCount}</span>
                         </Link>
                         {user ? (
-                            <button onClick={handleLogout} className="p-2 text-slate-600 hover:text-red-600" title="Log out">
+                            <button onClick={handleLogout} className="p-2 text-slate-600 hover:text-red-600" title="Log out" aria-label="Log out">
                                 <LogOut size={20} />
                             </button>
                         ) : (

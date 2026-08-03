@@ -21,14 +21,16 @@ export default function ProductCard({ product }) {
     response.ok ? toast.success('Added to wishlist') : toast.error(data.message || data.error || 'Could not update wishlist')
   }
 
-  return <Link href={`/product/${product.slug || product.id}`} className='group max-xl:mx-auto relative'>
-    <div className='bg-[#F5F5F5] h-40 sm:w-60 sm:h-68 rounded-lg flex items-center justify-center relative overflow-hidden'>
-      {image ? <Image width={500} height={500} className='max-h-30 sm:max-h-40 w-auto group-hover:scale-110 transition duration-300' src={image} alt={product.name} /> : <span className='text-sm text-slate-400'>No image</span>}
-      <button onClick={addToWishlist} aria-label='Add to wishlist' className='absolute right-3 top-3 rounded-full bg-white p-2 text-slate-500 shadow-sm hover:text-red-500'><Heart size={17} /></button>
+  return <article className='group relative max-xl:mx-auto'>
+    <Link href={`/product/${product.slug || product.id}`} aria-label={`View ${product.name}`}>
+    <div className='relative flex h-40 items-center justify-center overflow-hidden rounded-lg bg-[#F5F5F5] sm:h-68 sm:w-60'>
+      {image ? <Image width={240} height={272} sizes='(max-width: 640px) 50vw, 240px' quality={80} className='max-h-30 sm:max-h-40 w-auto group-hover:scale-110 transition duration-300' src={image} alt={product.name} /> : <span className='text-sm text-slate-400'>No image</span>}
     </div>
     <div className='flex justify-between gap-3 text-sm text-slate-800 pt-2 max-w-60'>
       <div><p>{product.name}</p><div className='flex'>{Array(5).fill('').map((_, index) => <StarIcon key={index} size={14} className='text-transparent mt-0.5' fill={rating >= index + 1 ? '#00C950' : '#D1D5DB'} />)}</div></div>
       <p>{currency}{product.salePrice ?? product.price}</p>
     </div>
-  </Link>
+    </Link>
+    <button type='button' onClick={addToWishlist} aria-label={`Add ${product.name} to wishlist`} className='absolute right-3 top-3 rounded-full bg-white p-2 text-slate-500 shadow-sm hover:text-red-500'><Heart aria-hidden='true' size={17} /></button>
+  </article>
 }
